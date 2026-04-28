@@ -1,0 +1,29 @@
+services:
+
+  # --- BACKEND: FastAPI ---
+  api:
+    build: .
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"       # Espone la porta 8000 sul host (per /docs e per il browser)
+    env_file:
+      - .env              # Carica OPENAI_API_KEY dal file .env
+    volumes:
+      - ./models:/app/models    # I modelli addestrati persistono fuori dal container
+      - ./outputs:/app/outputs  # I grafici e il CSV sintetico persistono fuori
+      - ./data:/app/data        # Cartella opzionale per dataset locali
+
+  # --- FRONTEND: Streamlit ---
+  ui:
+    build: .
+    command: streamlit run ui/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"       # Espone la dashboard sul browser
+    environment:
+      # Dentro Docker i container si parlano per nome del servizio ("api"),
+      # non tramite localhost. Questa variabile sovrascrive l'URL di default.
+      - API_URL=http://api:8000
+    volumes:
+      - ./outputs:/app/outputs  # Stesso volume dell'api: condividono grafici e CSV
+    depends_on:
+      - api               # Streamlit parte solo dopo che FastAPI è avviato
